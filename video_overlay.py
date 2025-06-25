@@ -134,7 +134,9 @@ def add_video_overlay_with_chroma(main_video_path, overlay_video_path, output_pa
                                  start_time=0, duration=None, position="center", 
                                  size_percent=30, chroma_key=True, chroma_color="0x00ff00",
                                  chroma_similarity=0.1, chroma_blend=0.1, 
-                                 color=None, similarity=None, auto_hide=True):
+                                 color=None, similarity=None, auto_hide=True,
+                                 custom_x=None, custom_y=None, 
+                                 custom_width=None, custom_height=None, keep_aspect=True):
     """
     Chèn video overlay vào video chính với tùy chọn chroma key nâng cao
     
@@ -229,6 +231,9 @@ def add_video_overlay_with_chroma(main_video_path, overlay_video_path, output_pa
         elif position == "bottom-right":
             x_pos = "main_w-overlay_w-10"
             y_pos = "main_h-overlay_h-10"
+        elif position == "custom" and custom_x is not None and custom_y is not None:
+            x_pos = str(custom_x)
+            y_pos = str(custom_y)
         else:
             x_pos = "(main_w-overlay_w)/2"
             y_pos = "(main_h-overlay_h)/2"
@@ -236,9 +241,22 @@ def add_video_overlay_with_chroma(main_video_path, overlay_video_path, output_pa
         # Tạo filter complex
         filter_parts = []
         
-        # Scale video overlay
-        scale_factor = size_percent / 100.0
-        scale_filter = f"[1:v]scale=-1:ih*{scale_factor}[scaled]"
+        # Scale video overlay based on mode
+        if custom_width is not None and custom_height is not None:
+            # Custom pixel size mode
+            if keep_aspect:
+                # Keep aspect ratio, scale to fit within specified dimensions
+                scale_filter = f"[1:v]scale={custom_width}:{custom_height}:force_original_aspect_ratio=decrease[scaled]"
+            else:
+                # Exact size, may distort aspect ratio
+                scale_filter = f"[1:v]scale={custom_width}:{custom_height}[scaled]"
+            print(f"Using custom size: {custom_width}x{custom_height}px, keep_aspect={keep_aspect}")
+        else:
+            # Original percentage mode
+            scale_factor = size_percent / 100.0
+            scale_filter = f"[1:v]scale=-1:ih*{scale_factor}[scaled]"
+            print(f"Using percentage mode: {size_percent}%")
+        
         filter_parts.append(scale_filter)
         
         # Áp dụng chroma key nếu cần
@@ -511,7 +529,8 @@ def get_chroma_preset(preset_name):
 def add_video_overlay_easy_chroma(main_video_path, overlay_video_path, output_path,
                                  start_time=0, duration=None, position="center", 
                                  size_percent=30, chroma_color_name="green", 
-                                 chroma_preset="normal"):
+                                 chroma_preset="normal", custom_x=None, custom_y=None,
+                                 custom_width=None, custom_height=None, keep_aspect=True):
     """
     Chèn video overlay với chroma key đơn giản sử dụng tên màu và preset
     
@@ -540,7 +559,12 @@ def add_video_overlay_easy_chroma(main_video_path, overlay_video_path, output_pa
         chroma_key=True,
         chroma_color=chroma_color,
         chroma_similarity=similarity,
-        chroma_blend=blend
+        chroma_blend=blend,
+        custom_x=custom_x,
+        custom_y=custom_y,
+        custom_width=custom_width,
+        custom_height=custom_height,
+        keep_aspect=keep_aspect
     )
 
 def add_image_overlay_with_animation(main_video_path, image_path, output_path,

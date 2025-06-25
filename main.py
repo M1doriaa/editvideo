@@ -124,7 +124,13 @@ class AutoVideoEditor:
                             chroma_key=settings.get('chroma_key', True),
                             chroma_color=chroma_color,
                             chroma_similarity=chroma_similarity,
-                            chroma_blend=chroma_blend
+                            chroma_blend=chroma_blend,
+                            auto_hide=settings.get('auto_hide', True),
+                            custom_x=settings.get('custom_x'),
+                            custom_y=settings.get('custom_y'),
+                            custom_width=settings.get('custom_width'),
+                            custom_height=settings.get('custom_height'),
+                            keep_aspect=settings.get('keep_aspect', True)
                         )
                     
                     # Sau đó thêm phụ đề và image overlay lên video đã có video overlay
@@ -293,7 +299,13 @@ class AutoVideoEditor:
                 size_percent=settings.get('size_percent', 25),
                 chroma_key=settings.get('chroma_key', True),
                 color=chroma_color,  # Sử dụng alias từ test_chroma_key.py
-                similarity=chroma_similarity  # Sử dụng alias từ test_chroma_key.py
+                similarity=chroma_similarity,  # Sử dụng alias từ test_chroma_key.py
+                auto_hide=settings.get('auto_hide', True),
+                custom_x=settings.get('custom_x'),
+                custom_y=settings.get('custom_y'),
+                custom_width=settings.get('custom_width'),
+                custom_height=settings.get('custom_height'),
+                keep_aspect=settings.get('keep_aspect', True)
             )
             
             current_video = temp_output

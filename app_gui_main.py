@@ -41,13 +41,10 @@ class VideoEditorGUI:
         self.output_video_path = tk.StringVar()
         self.source_language = tk.StringVar(value="vi")
         self.target_language = tk.StringVar(value="en")
-        self.img_folder_path = tk.StringVar(value="img")
         self.video_folder_path = tk.StringVar(value="videoinput")
         self.words_per_line = tk.IntVar(value=7)  # Số từ mỗi dòng phụ đề
         self.processing = False
           # Overlay settings
-        self.overlay_times = {}
-        self.animation_config = {}  # Cấu hình animation cho ảnh
         self.video_overlay_settings = {'enabled': False}
         
         self.setup_ui()
@@ -129,13 +126,6 @@ class VideoEditorGUI:
         
         row += 1
         
-        # Image folder selection
-        ttk.Label(main_frame, text="🖼️ Thư mục ảnh:").grid(row=row, column=0, sticky=tk.W, pady=5)
-        img_entry = ttk.Entry(main_frame, textvariable=self.img_folder_path)
-        img_entry.grid(row=row, column=1, sticky=(tk.W, tk.E), padx=(10, 5), pady=5)
-        ttk.Button(main_frame, text="Chọn thư mục", command=self.select_img_folder).grid(row=row, column=2, padx=(5, 0), pady=5)
-        row += 1
-        
         # Video overlay folder selection
         ttk.Label(main_frame, text="🎭 Thư mục video overlay:").grid(row=row, column=0, sticky=tk.W, pady=5)
         video_entry = ttk.Entry(main_frame, textvariable=self.video_folder_path)
@@ -145,22 +135,17 @@ class VideoEditorGUI:
         overlay_frame = ttk.Frame(main_frame)
         overlay_frame.grid(row=row, column=0, columnspan=3, pady=(10, 10), sticky=(tk.W, tk.E))
         
-        ttk.Button(overlay_frame, text="⏰ Cấu hình thời gian Overlay Ảnh", command=self.configure_overlay_timing).pack(side=tk.LEFT, padx=(0, 10))
         ttk.Button(overlay_frame, text="🎬 Cấu hình Video Overlay + Chroma Key", command=self.configure_video_overlay).pack(side=tk.LEFT, padx=(0, 10))
         row += 1
         
         # Status labels
-        self.timing_status = ttk.Label(main_frame, text="Chưa cấu hình overlay ảnh", foreground="gray")
-        self.timing_status.grid(row=row, column=0, columnspan=3, sticky=tk.W, pady=2)
-        row += 1
-        
         self.video_overlay_status = ttk.Label(main_frame, text="Chưa cấu hình video overlay", foreground="gray")
         self.video_overlay_status.grid(row=row, column=0, columnspan=3, sticky=tk.W, pady=2)
         row += 1
           # Process button
         self.process_button = ttk.Button(
             main_frame,
-            text="🚀 Bắt đầu xử lý (Phụ đề + Ảnh + Video Overlay + 9:16)",
+            text="🚀 Bắt đầu xử lý (Phụ đề + Video Overlay + 9:16)",
             command=self.start_processing,
             style="Accent.TButton"
         )
@@ -234,16 +219,6 @@ class VideoEditorGUI:
             self.output_video_path.set(file_path)
             self.log_message(f"💾 Đã chọn vị trí lưu: {os.path.basename(file_path)}")
     
-    def select_img_folder(self):
-        """Chọn thư mục chứa ảnh overlay"""
-        folder_path = filedialog.askdirectory(
-            title="Chọn thư mục chứa ảnh overlay",
-            initialdir=self.img_folder_path.get() if self.img_folder_path.get() else "."
-        )
-        if folder_path:
-            self.img_folder_path.set(folder_path)
-            self.log_message(f"📁 Đã chọn thư mục ảnh: {folder_path}")
-    
     def select_video_folder(self):
         """Chọn thư mục chứa video overlay"""
         folder_path = filedialog.askdirectory(
@@ -263,192 +238,6 @@ class VideoEditorGUI:
                 self.log_message(f"🎬 Tìm thấy {len(video_files)} file video: {[os.path.basename(f) for f in video_files]}")
             else:
                 self.log_message("⚠️ Không tìm thấy file video nào trong thư mục")
-
-    def configure_overlay_timing(self):
-        """Cấu hình thời gian overlay ảnh"""
-        if not self.img_folder_path.get():
-            messagebox.showwarning("Cảnh báo", "Vui lòng chọn thư mục ảnh trước!")
-            return
-            
-        # Tìm file ảnh trong thư mục
-        img_files = []
-        folder_path = self.img_folder_path.get()
-        
-        for ext in ['*.png', '*.jpg', '*.jpeg', '*.gif', '*.bmp']:
-            img_files.extend(glob.glob(os.path.join(folder_path, ext)))
-        
-        if not img_files:
-            messagebox.showwarning("Cảnh báo", "Không tìm thấy file ảnh nào trong thư mục!")
-            return
-        self.show_overlay_timing_dialog(img_files)
-    
-    def show_overlay_timing_dialog(self, img_files):
-        """Dialog cấu hình thời gian overlay ảnh với animation"""
-        dialog = tk.Toplevel(self.root)
-        dialog.title("⏰✨ Cấu hình Overlay Ảnh + Animation")
-        dialog.geometry("700x500")
-        dialog.transient(self.root)
-        dialog.grab_set()
-        
-        main_frame = ttk.Frame(dialog, padding="10")
-        main_frame.pack(fill=tk.BOTH, expand=True)
-        
-        ttk.Label(main_frame, text="🎬 Cấu hình thời gian và animation cho từng ảnh:", font=("Arial", 10, "bold")).pack(anchor=tk.W, pady=(0, 10))
-        
-        # Scrollable frame
-        canvas = tk.Canvas(main_frame)
-        scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
-        scrollable_frame = ttk.Frame(canvas)
-        
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-        
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-        
-        # Header
-        header_frame = ttk.Frame(scrollable_frame)
-        header_frame.pack(fill=tk.X, pady=(0, 10))
-        
-        ttk.Label(header_frame, text="Ảnh", width=20).grid(row=0, column=0, padx=5)
-        ttk.Label(header_frame, text="Bắt đầu(s)", width=10).grid(row=0, column=1, padx=5)
-        ttk.Label(header_frame, text="Thời lượng(s)", width=10).grid(row=0, column=2, padx=5)
-        ttk.Label(header_frame, text="Vị trí", width=12).grid(row=0, column=3, padx=5)
-        ttk.Label(header_frame, text="Animation", width=12).grid(row=0, column=4, padx=5)
-        ttk.Label(header_frame, text="Thời gian Anim(s)", width=10).grid(row=0, column=5, padx=5)
-        
-        # Tạo entry cho mỗi file ảnh
-        entries = {}
-        animations = {}
-        for i, img_file in enumerate(img_files):
-            filename = os.path.basename(img_file)
-            
-            frame = ttk.Frame(scrollable_frame)
-            frame.pack(fill=tk.X, pady=2)
-            
-            # Tên file
-            ttk.Label(frame, text=f"🖼️ {filename[:15]}...", width=20).grid(row=0, column=0, padx=5, sticky=tk.W)
-            
-            # Thời gian bắt đầu
-            start_var = tk.StringVar(value=str(i * 3))
-            start_entry = ttk.Entry(frame, textvariable=start_var, width=8)
-            start_entry.grid(row=0, column=1, padx=5)
-            
-            # Thời lượng
-            duration_var = tk.StringVar(value="4")
-            duration_entry = ttk.Entry(frame, textvariable=duration_var, width=8)
-            duration_entry.grid(row=0, column=2, padx=5)
-            
-            # Vị trí
-            position_var = tk.StringVar(value="center")
-            position_combo = ttk.Combobox(frame, textvariable=position_var, 
-                                        values=["center", "top-left", "top-right", "bottom-left", "bottom-right"], 
-                                        state="readonly", width=10)
-            position_combo.grid(row=0, column=3, padx=5)
-            
-            # Animation type
-            animation_var = tk.StringVar(value="fade_in_out")
-            animation_combo = ttk.Combobox(frame, textvariable=animation_var,
-                                         values=["fade_in", "fade_out", "fade_in_out", "slide_left", "slide_right", 
-                                                "slide_up", "slide_down", "zoom_in", "zoom_out", "rotate_in", 
-                                                "bounce", "pulse"],
-                                         state="readonly", width=10)
-            animation_combo.grid(row=0, column=4, padx=5)
-            
-            # Animation duration
-            anim_duration_var = tk.StringVar(value="1.0")
-            anim_duration_entry = ttk.Entry(frame, textvariable=anim_duration_var, width=8)
-            anim_duration_entry.grid(row=0, column=5, padx=5)
-            
-            entries[filename] = {
-                'start': start_var, 
-                'duration': duration_var,
-                'position': position_var
-            }
-            animations[filename] = {
-                'type': animation_var,
-                'duration': anim_duration_var
-            }
-        
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-        
-        # Quick presets
-        preset_frame = ttk.LabelFrame(main_frame, text="🎭 Presets nhanh", padding="10")
-        preset_frame.pack(fill=tk.X, pady=(10, 0))
-        
-        def apply_preset(preset_type):
-            if preset_type == "fade_sequence":
-                for i, (filename, vars) in enumerate(entries.items()):
-                    vars['start'].set(str(i * 3))
-                    vars['duration'].set("4")
-                    vars['position'].set("center")
-                    animations[filename]['type'].set("fade_in_out")
-                    animations[filename]['duration'].set("1.0")
-            
-            elif preset_type == "slide_show":
-                positions = ["top-left", "top-right", "bottom-left", "bottom-right", "center"]
-                slides = ["slide_left", "slide_right", "slide_up", "slide_down", "zoom_in"]
-                for i, (filename, vars) in enumerate(entries.items()):
-                    vars['start'].set(str(i * 4))
-                    vars['duration'].set("5")
-                    vars['position'].set(positions[i % len(positions)])
-                    animations[filename]['type'].set(slides[i % len(slides)])
-                    animations[filename]['duration'].set("1.5")
-            
-            elif preset_type == "zoom_burst":
-                for i, (filename, vars) in enumerate(entries.items()):
-                    vars['start'].set(str(i * 2))
-                    vars['duration'].set("3")
-                    vars['position'].set("center")
-                    animations[filename]['type'].set("zoom_in")
-                    animations[filename]['duration'].set("0.8")
-        
-        ttk.Button(preset_frame, text="🌊 Fade Sequence", command=lambda: apply_preset("fade_sequence")).pack(side=tk.LEFT, padx=(0, 10))
-        ttk.Button(preset_frame, text="🎢 Slide Show", command=lambda: apply_preset("slide_show")).pack(side=tk.LEFT, padx=(0, 10))
-        ttk.Button(preset_frame, text="💥 Zoom Burst", command=lambda: apply_preset("zoom_burst")).pack(side=tk.LEFT)
-        
-        button_frame = ttk.Frame(main_frame)
-        button_frame.pack(fill=tk.X, pady=(20, 0))
-        
-        def save_timing():
-            try:
-                timing = {}
-                anim_config = {}
-                for filename, vars in entries.items():
-                    start = float(vars['start'].get())
-                    duration = float(vars['duration'].get())
-                    position = vars['position'].get()
-                    
-                    timing[filename] = {
-                        'start': start, 
-                        'duration': duration,
-                        'position': position,
-                        'scale': 0.3  # Kích thước mặc định
-                    }
-                    
-                    anim_config[filename] = {
-                        'type': animations[filename]['type'].get(),
-                        'duration': float(animations[filename]['duration'].get())
-                    }
-                
-                self.overlay_times = timing
-                self.animation_config = anim_config  # Lưu cấu hình animation
-                
-                self.timing_status.config(text=f"✅ Đã cấu hình {len(timing)} ảnh với animation", foreground="green")
-                self.log_message(f"✨ Đã cấu hình {len(timing)} ảnh overlay với animation")
-                for filename in timing:
-                    anim_type = anim_config[filename]['type']
-                    self.log_message(f"   🖼️ {filename}: {anim_type}")
-                dialog.destroy()
-                
-            except ValueError:
-                messagebox.showerror("Lỗi", "Vui lòng nhập số hợp lệ cho thời gian!")
-        
-        ttk.Button(button_frame, text="✅ Lưu cấu hình", command=save_timing).pack(side=tk.LEFT, padx=(0, 10))
-        ttk.Button(button_frame, text="❌ Hủy", command=dialog.destroy).pack(side=tk.RIGHT)
 
     def configure_video_overlay(self):
         """Cấu hình video overlay với chroma key"""
@@ -492,6 +281,16 @@ class VideoEditorGUI:
         advanced_mode_var = tk.BooleanVar(value=False)
         auto_hide_var = tk.BooleanVar(value=True)  # NEW: Default to auto hide
         
+        # Custom position variables (declared here to avoid UnboundLocalError)
+        custom_x_var = tk.StringVar(value="100")
+        custom_y_var = tk.StringVar(value="100")
+        
+        # Size mode variables
+        size_mode_var = tk.StringVar(value="percent")
+        custom_width_var = tk.StringVar(value="300")
+        custom_height_var = tk.StringVar(value="200")
+        keep_aspect_var = tk.BooleanVar(value=True)
+        
         # Advanced controls (hidden by default)
         custom_similarity_var = tk.DoubleVar(value=0.2)
         custom_blend_var = tk.DoubleVar(value=0.15)
@@ -510,6 +309,18 @@ class VideoEditorGUI:
                 duration_var.set(str(prev['duration']))
             if prev.get('position'):
                 position_var.set(prev['position'])
+            if prev.get('custom_x') is not None:
+                custom_x_var.set(str(prev['custom_x']))
+            if prev.get('custom_y') is not None:
+                custom_y_var.set(str(prev['custom_y']))
+            if prev.get('size_mode'):
+                size_mode_var.set(prev['size_mode'])
+            if prev.get('custom_width') is not None:
+                custom_width_var.set(str(prev['custom_width']))
+            if prev.get('custom_height') is not None:
+                custom_height_var.set(str(prev['custom_height']))
+            if prev.get('keep_aspect') is not None:
+                keep_aspect_var.set(prev['keep_aspect'])
             if prev.get('size_percent') is not None:
                 size_var.set(str(prev['size_percent']))
             if prev.get('chroma_key') is not None:
@@ -561,15 +372,90 @@ class VideoEditorGUI:
         pos_frame = ttk.Frame(layout_frame)
         pos_frame.pack(fill=tk.X, pady=2)
         ttk.Label(pos_frame, text="Vị trí:").pack(side=tk.LEFT)
-        ttk.Combobox(pos_frame, textvariable=position_var, 
-                    values=["center", "top-left", "top-right", "bottom-left", "bottom-right"], 
-                    state="readonly", width=15).pack(side=tk.LEFT, padx=(10, 0))
+        position_combo = ttk.Combobox(pos_frame, textvariable=position_var, 
+                    values=["center", "top-left", "top-right", "bottom-left", "bottom-right", "custom"], 
+                    state="readonly", width=15)
+        position_combo.pack(side=tk.LEFT, padx=(10, 0))
+        
+        # Custom position inputs (initially hidden)
+        custom_pos_frame = ttk.Frame(layout_frame)
+        
+        ttk.Label(custom_pos_frame, text="Tọa độ tùy chỉnh:").pack(anchor=tk.W, pady=(5, 2))
+        
+        coord_frame = ttk.Frame(custom_pos_frame)
+        coord_frame.pack(fill=tk.X, pady=2)
+        
+        ttk.Label(coord_frame, text="X:").pack(side=tk.LEFT)
+        ttk.Entry(coord_frame, textvariable=custom_x_var, width=8).pack(side=tk.LEFT, padx=(5, 10))
+        
+        ttk.Label(coord_frame, text="Y:").pack(side=tk.LEFT)
+        ttk.Entry(coord_frame, textvariable=custom_y_var, width=8).pack(side=tk.LEFT, padx=(5, 10))
+        
+        ttk.Label(coord_frame, text="(pixel từ góc trên-trái)", 
+                 font=("Arial", 8), foreground="gray").pack(side=tk.LEFT, padx=(10, 0))
+        
+        # Show/hide custom position controls
+        def toggle_custom_position(*args):
+            if position_var.get() == "custom":
+                custom_pos_frame.pack(fill=tk.X, pady=(5, 0))
+            else:
+                custom_pos_frame.pack_forget()
+        
+        position_var.trace('w', toggle_custom_position)
         
         # Size
         size_frame = ttk.Frame(layout_frame)
         size_frame.pack(fill=tk.X, pady=2)
-        ttk.Label(size_frame, text="Kích thước (% chiều cao):").pack(side=tk.LEFT)
-        ttk.Entry(size_frame, textvariable=size_var, width=10).pack(side=tk.LEFT, padx=(10, 0))
+        
+        # Size mode selection
+        size_mode_frame = ttk.Frame(size_frame)
+        size_mode_frame.pack(fill=tk.X, pady=(0, 5))
+        
+        ttk.Label(size_mode_frame, text="Chế độ kích thước:").pack(side=tk.LEFT)
+        size_mode_combo = ttk.Combobox(size_mode_frame, textvariable=size_mode_var,
+                    values=["percent", "pixels"], state="readonly", width=12)
+        size_mode_combo.pack(side=tk.LEFT, padx=(10, 0))
+        
+        # Percent mode (original)
+        percent_frame = ttk.Frame(size_frame)
+        percent_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(percent_frame, text="Kích thước (% chiều cao):").pack(side=tk.LEFT)
+        ttk.Entry(percent_frame, textvariable=size_var, width=10).pack(side=tk.LEFT, padx=(10, 0))
+        
+        # Pixel mode (new)
+        pixel_frame = ttk.Frame(size_frame)
+        
+        ttk.Label(pixel_frame, text="Kích thước cụ thể (pixels):").pack(anchor=tk.W, pady=(0, 2))
+        
+        pixel_controls_frame = ttk.Frame(pixel_frame)
+        pixel_controls_frame.pack(fill=tk.X, pady=2)
+        
+        ttk.Label(pixel_controls_frame, text="Rộng:").pack(side=tk.LEFT)
+        ttk.Entry(pixel_controls_frame, textvariable=custom_width_var, width=8).pack(side=tk.LEFT, padx=(5, 15))
+        
+        ttk.Label(pixel_controls_frame, text="Cao:").pack(side=tk.LEFT)
+        ttk.Entry(pixel_controls_frame, textvariable=custom_height_var, width=8).pack(side=tk.LEFT, padx=(5, 15))
+        
+        ttk.Label(pixel_controls_frame, text="(pixel)", 
+                 font=("Arial", 8), foreground="gray").pack(side=tk.LEFT, padx=(10, 0))
+        
+        # Aspect ratio lock option
+        aspect_frame = ttk.Frame(pixel_frame)
+        aspect_frame.pack(fill=tk.X, pady=(5, 0))
+        
+        ttk.Checkbutton(aspect_frame, text="Giữ tỷ lệ khung hình gốc", 
+                       variable=keep_aspect_var).pack(anchor=tk.W)
+        
+        # Show/hide size controls based on mode
+        def toggle_size_mode(*args):
+            if size_mode_var.get() == "percent":
+                percent_frame.pack(fill=tk.X, pady=2)
+                pixel_frame.pack_forget()
+            else:
+                percent_frame.pack_forget()
+                pixel_frame.pack(fill=tk.X, pady=2)
+        
+        size_mode_var.trace('w', toggle_size_mode)
         
         # Simplified Chroma Key section
         chroma_frame = ttk.LabelFrame(main_frame, text="Xóa nền (Chroma Key)", padding="10")
@@ -671,7 +557,23 @@ class VideoEditorGUI:
                         
                 start_time = float(start_var.get())
                 duration = float(duration_var.get()) if duration_var.get().strip() else None
-                size = int(size_var.get())
+                
+                # Lấy kích thước
+                size_mode = size_mode_var.get()
+                custom_width = None
+                custom_height = None
+                keep_aspect = keep_aspect_var.get()
+                
+                if size_mode == "pixels":
+                    try:
+                        custom_width = int(custom_width_var.get())
+                        custom_height = int(custom_height_var.get())
+                        size = None  # Không sử dụng size_percent khi dùng pixel
+                    except ValueError:
+                        messagebox.showerror("Lỗi", "Chiều rộng và chiều cao phải là số nguyên!")
+                        return
+                else:
+                    size = int(size_var.get())
                 
                 # Lấy chroma settings
                 chroma_color = chroma_color_var.get()
@@ -686,13 +588,32 @@ class VideoEditorGUI:
                     similarity, blend = OPTIMAL_CHROMA_REMOVAL.get(chroma_color, (0.15, 0.1))
                     print(f"DEBUG GUI: Using optimal for {chroma_color} - similarity={similarity}, blend={blend}")
                 
+                # Lấy vị trí
+                position = position_var.get()
+                custom_x = None
+                custom_y = None
+                
+                if position == "custom":
+                    try:
+                        custom_x = int(custom_x_var.get())
+                        custom_y = int(custom_y_var.get())
+                    except ValueError:
+                        messagebox.showerror("Lỗi", "Tọa độ X, Y phải là số nguyên!")
+                        return
+                
                 self.video_overlay_settings = {
                     'enabled': True,
                     'video_path': video_path,
                     'start_time': start_time,
                     'duration': duration,
-                    'position': position_var.get(),
-                    'size_percent': size,
+                    'position': position,
+                    'custom_x': custom_x,
+                    'custom_y': custom_y,
+                    'size_mode': size_mode,
+                    'size_percent': size if size_mode == "percent" else None,
+                    'custom_width': custom_width,
+                    'custom_height': custom_height,
+                    'keep_aspect': keep_aspect,
                     'chroma_key': chroma_enabled_var.get(),
                     'chroma_color': chroma_color,
                     'chroma_similarity': similarity,
@@ -705,8 +626,20 @@ class VideoEditorGUI:
                 
                 # Update status message
                 auto_hide_text = " (auto-hide)" if auto_hide_var.get() else " (freeze)"
+                position_text = f" | {position}"
+                if position == "custom" and custom_x is not None and custom_y is not None:
+                    position_text = f" | custom({custom_x},{custom_y})"
+                
+                size_text = ""
+                if size_mode == "pixels":
+                    size_text = f" | {custom_width}x{custom_height}px"
+                    if keep_aspect:
+                        size_text += " (tỷ lệ gốc)"
+                else:
+                    size_text = f" | {size}%"
+                
                 self.video_overlay_status.config(
-                    text=f"Đã cấu hình: {selected_video} | {chroma_color} ({similarity:.3f}, {blend:.3f}){auto_hide_text}", 
+                    text=f"Đã cấu hình: {selected_video}{position_text}{size_text} | {chroma_color} ({similarity:.3f}, {blend:.3f}){auto_hide_text}", 
                     foreground="green"
                 )
                 
@@ -795,81 +728,6 @@ class VideoEditorGUI:
         color_map = color_settings.get(color.lower(), default_settings)
         return color_map.get(preset.lower(), (0.2, 0.15))
 
-    def create_multiple_overlays(self, selected_video):
-        """Tạo cấu hình multiple video overlay giống ảnh 2, 3"""
-        if not selected_video:
-            messagebox.showwarning("Cảnh báo", "Vui lòng chọn video trước!")
-            return
-        
-        # Tìm đường dẫn video
-        video_path = None
-        video_files = []
-        folder_path = self.video_folder_path.get()
-        
-        for ext in ['*.mp4', '*.avi', '*.mov', '*.mkv', '*.wmv']:
-            video_files.extend(glob.glob(os.path.join(folder_path, ext)))
-        
-        for f in video_files:
-            if os.path.basename(f) == selected_video:
-                video_path = f
-                break
-        
-        if not video_path:
-            messagebox.showerror("Lỗi", "Không tìm thấy file video!")
-            return
-          # Tạo 3 cấu hình overlay giống ảnh 2, 3 với chroma key tối ưu
-        overlays = [
-            {
-                'video_path': video_path,
-                'start_time': 2.0,
-                'duration': 8.0,
-                'position': 'top-right',
-                'size_percent': 25,
-                'chroma_key': True,
-                'chroma_color': '0x32CD32',  # Lime green - tối ưu cho chroma key
-                'chroma_similarity': 0.25    # Giá trị tối ưu từ test_chroma_key.py
-            },
-            {
-                'video_path': video_path,
-                'start_time': 12.0,
-                'duration': 8.0,
-                'position': 'bottom-left',
-                'size_percent': 20,
-                'chroma_key': True,
-                'chroma_color': '0x32CD32',
-                'chroma_similarity': 0.25
-            },
-            {
-                'video_path': video_path,
-                'start_time': 22.0,
-                'duration': 8.0,
-                'position': 'center',
-                'size_percent': 30,
-                'chroma_key': True,
-                'chroma_color': '0x32CD32',
-                'chroma_similarity': 0.25
-            }
-        ]
-        
-        # Lưu tất cả overlay vào settings
-        self.video_overlay_settings = {
-            'enabled': True,
-            'multiple_overlays': overlays
-        }
-        
-        self.video_overlay_status.config(
-            text=f"✅ 3 overlay từ {selected_video} (2s-7s, 8s-13s, 15s-20s)", 
-            foreground="green"
-        )
-        
-        self.log_message(f"🎬 Đã tạo 3 video overlay từ: {selected_video}")
-        self.log_message("   • Overlay 1: 2s-7s (top-right, 25%)")
-        self.log_message("   • Overlay 2: 8s-13s (bottom-left, 20%)")
-        self.log_message("   • Overlay 3: 15s-20s (center, 30%)")
-        self.log_message("   • Chroma key: Rất nghiêm ngặt để khử xanh lá hoàn toàn")
-        
-        messagebox.showinfo("Thành công", "Đã tạo 3 video overlay với thời gian và vị trí khác nhau!\n\nChroma key đã được tối ưu để khử xanh lá hoàn toàn.")
-
     def log_message(self, message):
         """Thêm thông điệp vào log"""
         self.log_text.insert(tk.END, f"{message}\n")
@@ -889,9 +747,7 @@ class VideoEditorGUI:
             output_video_path = self.output_video_path.get()
             source_language = self.source_language.get()
             target_language = self.target_language.get()
-            img_folder = self.img_folder_path.get()
             video_overlay_settings = self.video_overlay_settings
-            overlay_times = self.overlay_times if self.overlay_times else None
             words_per_line = self.words_per_line.get()
 
             # Kiểm tra đầu vào
@@ -930,8 +786,6 @@ class VideoEditorGUI:
                         output_video_path=output_video_path,
                         source_language=source_language,
                         target_language=target_language,
-                        img_folder=img_folder,
-                        overlay_times=overlay_times,
                         video_overlay_settings=video_overlay_settings,
                         words_per_line=words_per_line
                     )
